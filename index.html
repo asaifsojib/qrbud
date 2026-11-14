@@ -604,6 +604,11 @@ footer{background:var(--ink);color:#fff;padding:clamp(90px,9vw,150px) 0 40px;ove
 .qr-stage.framed{display:flex;flex-direction:column;justify-content:center;gap:14px}
 .qr-stage.framed #qrbox{width:84%}
 .qr-stage.framed .frame-label{display:inline-flex}
+.card-preview{display:none;width:100%;height:auto;border-radius:14px}
+.qr-stage.show-card{padding:clamp(12px,1.4vw,18px)}
+.qr-stage.show-card #qrbox,.qr-stage.show-card .scan-frame,.qr-stage.show-card .frame-label{display:none}
+.qr-stage.show-card .card-preview{display:block}
+.qr-stage.empty .card-preview,.qr-stage.error .card-preview{display:none}
 .qr-stage.error .frame-label{display:none}
 
 /* Toggle switch (frame control) */
@@ -1011,6 +1016,7 @@ html{-webkit-text-size-adjust:100%}
         </div>
         <div class="qr-stage" id="qrStage">
           <div id="qrbox"></div>
+          <img class="card-preview" id="cardPreview" alt="Download card preview">
           <div class="scan-frame" aria-hidden="true">
             <span class="sf sf-tl"></span><span class="sf sf-tr"></span><span class="sf sf-bl"></span><span class="sf sf-br"></span>
             <span class="scan-line"></span>

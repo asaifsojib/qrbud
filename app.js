@@ -191,9 +191,30 @@ function renderQR(){
   var warn = byId('warn');
   if(warn) warn.classList.toggle('show', !!data && !qrError && contrastTooLow());
   setButtonsEnabled(!!data && !qrError);
+  updateCardPreview(data);
 }
 var deb = null;
 function scheduleRender(){ clearTimeout(deb); deb = setTimeout(renderQR, 220); }
+
+/* Live card preview: the stage shows the exact card the download will produce */
+var cardPreviewEl = byId('cardPreview'), cardSeq = 0;
+function updateCardPreview(data){
+  var show = !!(state.frame.on && data && !qrError && engineOK && qr);
+  if(stage) stage.classList.toggle('show-card', show);
+  if(!show || !cardPreviewEl) return;
+  var seq = ++cardSeq;
+  qr.getRawData('png').then(function(blob){
+    if(!blob || seq !== cardSeq) return null;
+    return buildFramedPng(blob, 640, state.frame.text || 'Scan me', captionFor(), typeName(), state.frame.style);
+  }).then(function(cardBlob){
+    if(!cardBlob || seq !== cardSeq) return;
+    var prev = cardPreviewEl.getAttribute('data-obj');
+    var url = URL.createObjectURL(cardBlob);
+    cardPreviewEl.setAttribute('data-obj', url);
+    cardPreviewEl.src = url;
+    if(prev){ try{ URL.revokeObjectURL(prev); }catch(e){} }
+  }).catch(function(){});
+}
 
 /* ---------- tabs + form ---------- */
 var tabs = $$('#tabs .tab');
@@ -340,7 +361,7 @@ function renderSegs(){
       b.type = 'button';
       b.textContent = o[1];
       b.setAttribute('aria-pressed', state.frame.style === o[0] ? 'true' : 'false');
-      b.addEventListener('click', function(){ state.frame.style = o[0]; renderSegs(); });
+      b.addEventListener('click', function(){ state.frame.style = o[0]; renderSegs(); renderQR(); });
       box.appendChild(b);
     });
   })();
@@ -450,6 +471,7 @@ if(frameText){
   frameText.addEventListener('input', function(){
     state.frame.text = frameText.value;
     var fl = byId('frameLabel'); if(fl) fl.textContent = frameText.value || 'Scan me';
+    scheduleRender();
   });
 }
 /* Friendly caption for the download card: the readable thing inside the code */
