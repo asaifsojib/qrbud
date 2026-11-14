@@ -53,7 +53,7 @@ var state = {
   dots: 'rounded',
   corners: 'extra-rounded',
   values: { url: 'https://google.com', enc: 'WPA2' },
-  frame: { on: true, text: 'Scan me' }
+  frame: { on: true, text: 'Scan me', style: 'kiwi' }
 };
 
 var TYPES = [
@@ -332,6 +332,18 @@ function renderSegs(){
   }
   seg('dotSeg', [['rounded','Rounded'],['dots','Dots'],['classy','Classy'],['classy-rounded','Classy round'],['extra-rounded','Extra round'],['square','Square']], 'dots');
   seg('cornerSeg', [['extra-rounded','Round'],['square','Square'],['dot','Dot']], 'corners');
+  (function(){
+    var box = byId('cardStyleSeg'); if(!box) return;
+    box.innerHTML = '';
+    [['kiwi','Kiwi'],['white','Plain white'],['midnight','Midnight'],['mono','Mono']].forEach(function(o){
+      var b = doc.createElement('button');
+      b.type = 'button';
+      b.textContent = o[1];
+      b.setAttribute('aria-pressed', state.frame.style === o[0] ? 'true' : 'false');
+      b.addEventListener('click', function(){ state.frame.style = o[0]; renderSegs(); });
+      box.appendChild(b);
+    });
+  })();
 }
 var sizeSel = byId('sizeSel'), ecSel = byId('ecSel');
 if(ecSel) ecSel.addEventListener('change', renderQR);
@@ -423,13 +435,14 @@ function initArtQrs(){
 }
 
 /* Photo frame controls */
-var frameToggle = byId('frameToggle'), frameTextRow = byId('frameTextRow'), frameText = byId('frameText');
+var frameToggle = byId('frameToggle'), frameTextRow = byId('frameTextRow'), frameText = byId('frameText'), cardStyleRow = byId('cardStyleRow');
 if(frameToggle){
   frameToggle.addEventListener('click', function(){
     var on = frameToggle.getAttribute('aria-checked') !== 'true';
     frameToggle.setAttribute('aria-checked', on ? 'true' : 'false');
     state.frame.on = on;
     if(frameTextRow){ if(on) frameTextRow.removeAttribute('hidden'); else frameTextRow.setAttribute('hidden', ''); }
+    if(cardStyleRow){ if(on) cardStyleRow.removeAttribute('hidden'); else cardStyleRow.setAttribute('hidden', ''); }
     renderQR();
   });
 }
@@ -476,14 +489,22 @@ function fitText(ctx, text, maxW){
   while(t.length > 1 && ctx.measureText(t + '…').width > maxW){ t = t.slice(0, -1); }
   return t + '…';
 }
+/* Download card styles: same layout, different moods */
+var CARD_STYLES = {
+  kiwi:     { bg:'#F4FFEB', glow:true,  dots:true,  sparkles:true,  ring:'dark',  plate:'#D1FFAB', cardShadow:true,  cardBorder:null,    wordmark:'#212121', typeStroke:'#212121', typeFill:'rgba(255,255,255,.65)', typeText:'#212121', scanCorners:true,  pillFill:'#212121', pillText:'#ffffff', caption:'#555C4D', frame:null },
+  white:    { bg:'#ffffff', glow:false, dots:false, sparkles:false, ring:null,    plate:null,     cardShadow:false, cardBorder:'#E7ECEF', wordmark:'#212121', typeStroke:'#212121', typeFill:'#ffffff',             typeText:'#212121', scanCorners:false, pillFill:'#212121', pillText:'#ffffff', caption:'#555C4D', frame:null },
+  midnight: { bg:'#0A0A0A', glow:'faint', dots:false, sparkles:false, ring:'light', plate:'#1F1F1F', cardShadow:false, cardBorder:null,    wordmark:'#ffffff', typeStroke:'#ffffff', typeFill:'rgba(255,255,255,.08)', typeText:'#ffffff', scanCorners:true,  pillFill:'#ffffff', pillText:'#212121', caption:'#B9BFC2', frame:null },
+  mono:     { bg:'#FAF2E6', glow:false, dots:false, sparkles:false, ring:null,    plate:null,     cardShadow:false, cardBorder:'#212121', wordmark:'#212121', typeStroke:'#212121', typeFill:'rgba(255,255,255,.5)',  typeText:'#212121', scanCorners:false, pillFill:'#212121', pillText:'#ffffff', caption:'#555C4D', frame:'#212121' }
+};
 /* Styled download card: kiwi canvas, glow discs, orbit ring, stack plate, scan corners */
-function buildFramedPng(blob, sizePx, label, caption, typeLabel){
+function buildFramedPng(blob, sizePx, label, caption, typeLabel, style){
   return new Promise(function(resolve, reject){
     var url = URL.createObjectURL(blob);
     var img = new Image();
     img.onload = function(){
       var draw = function(){
         try{
+          var cfg = CARD_STYLES[style] || CARD_STYLES.kiwi;
           var S = sizePx, k = S / 1024;
           var outer = 72 * k, inner = 40 * k;
           var cardW = S + inner * 2, cardX = outer;
@@ -493,51 +514,74 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel){
           var H = Math.round(topBarH + gap1 + cardW + gap2 + pillH + gap3 + capH + botPad);
           var cv = doc.createElement('canvas'); cv.width = W; cv.height = H;
           var ctx = cv.getContext('2d');
-          ctx.fillStyle = '#F4FFEB'; ctx.fillRect(0, 0, W, H);
-          var g1 = ctx.createRadialGradient(W * 0.88, H * 0.08, 10, W * 0.88, H * 0.08, 430 * k);
-          g1.addColorStop(0, 'rgba(129,216,41,.38)'); g1.addColorStop(1, 'rgba(129,216,41,0)');
-          ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
-          var g2 = ctx.createRadialGradient(W * 0.05, H * 0.94, 10, W * 0.05, H * 0.94, 400 * k);
-          g2.addColorStop(0, 'rgba(159,220,255,.5)'); g2.addColorStop(1, 'rgba(159,220,255,0)');
-          ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
-          var dots = [[0.06,0.20,9,'#81D829'],[0.94,0.30,7,'#BDE930'],[0.07,0.56,7,'#FF9AE4'],[0.94,0.60,9,'#9DECFF'],[0.09,0.88,7,'#BDE930'],[0.92,0.90,8,'#81D829'],[0.16,0.05,6,'#9DECFF'],[0.84,0.05,6,'#FF9AE4']];
-          dots.forEach(function(d){
-            ctx.beginPath(); ctx.arc(W * d[0], H * d[1], d[2] * k, 0, Math.PI * 2); ctx.fillStyle = d[3]; ctx.fill();
-          });
-          ctx.fillStyle = '#58A60A'; star4(ctx, W * 0.90, topBarH * 0.52, 17 * k); ctx.fill();
-          ctx.fillStyle = '#BDE930'; star4(ctx, outer * 0.55, cardY + cardW * 0.88, 14 * k); ctx.fill();
-          ctx.fillStyle = '#FF9AE4'; star4(ctx, W * 0.94, H * 0.44, 11 * k); ctx.fill();
+          ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, W, H);
+          if(cfg.frame){
+            ctx.strokeStyle = cfg.frame; ctx.lineWidth = 3 * k;
+            ctx.strokeRect(14 * k, 14 * k, W - 28 * k, H - 28 * k);
+            ctx.lineWidth = 1.5 * k;
+            ctx.strokeRect(26 * k, 26 * k, W - 52 * k, H - 52 * k);
+          }
+          if(cfg.glow){
+            var faint = cfg.glow === 'faint';
+            var g1 = ctx.createRadialGradient(W * 0.88, H * 0.08, 10, W * 0.88, H * 0.08, 430 * k);
+            g1.addColorStop(0, faint ? 'rgba(129,216,41,.14)' : 'rgba(129,216,41,.38)'); g1.addColorStop(1, 'rgba(129,216,41,0)');
+            ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+            var g2 = ctx.createRadialGradient(W * 0.05, H * 0.94, 10, W * 0.05, H * 0.94, 400 * k);
+            g2.addColorStop(0, faint ? 'rgba(159,220,255,.10)' : 'rgba(159,220,255,.5)'); g2.addColorStop(1, 'rgba(159,220,255,0)');
+            ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+          }
+          if(cfg.dots){
+            var dots = [[0.06,0.20,9,'#81D829'],[0.94,0.30,7,'#BDE930'],[0.07,0.56,7,'#FF9AE4'],[0.94,0.60,9,'#9DECFF'],[0.09,0.88,7,'#BDE930'],[0.92,0.90,8,'#81D829'],[0.16,0.05,6,'#9DECFF'],[0.84,0.05,6,'#FF9AE4']];
+            dots.forEach(function(d){
+              ctx.beginPath(); ctx.arc(W * d[0], H * d[1], d[2] * k, 0, Math.PI * 2); ctx.fillStyle = d[3]; ctx.fill();
+            });
+          }
+          if(cfg.sparkles){
+            ctx.fillStyle = '#58A60A'; star4(ctx, W * 0.90, topBarH * 0.52, 17 * k); ctx.fill();
+            ctx.fillStyle = '#BDE930'; star4(ctx, outer * 0.55, cardY + cardW * 0.88, 14 * k); ctx.fill();
+            ctx.fillStyle = '#FF9AE4'; star4(ctx, W * 0.94, H * 0.44, 11 * k); ctx.fill();
+          }
           var ccx = W / 2, ccy = cardY + cardW / 2;
+          if(cfg.ring){
+            ctx.save();
+            ctx.beginPath(); ctx.arc(ccx, ccy, cardW * 0.63, 0, Math.PI * 2);
+            ctx.setLineDash([16 * k, 14 * k]); ctx.lineWidth = 3 * k;
+            ctx.strokeStyle = cfg.ring === 'light' ? 'rgba(255,255,255,.25)' : 'rgba(33,33,33,.28)'; ctx.stroke();
+            ctx.restore();
+          }
+          if(cfg.plate){
+            ctx.save();
+            ctx.translate(ccx, ccy); ctx.rotate(-5 * Math.PI / 180);
+            rrPath(ctx, -cardW / 2, -cardW / 2, cardW, cardW, 56 * k);
+            ctx.fillStyle = cfg.plate; ctx.fill();
+            ctx.restore();
+          }
           ctx.save();
-          ctx.beginPath(); ctx.arc(ccx, ccy, cardW * 0.63, 0, Math.PI * 2);
-          ctx.setLineDash([16 * k, 14 * k]); ctx.lineWidth = 3 * k;
-          ctx.strokeStyle = 'rgba(33,33,33,.28)'; ctx.stroke();
-          ctx.restore();
-          ctx.save();
-          ctx.translate(ccx, ccy); ctx.rotate(-5 * Math.PI / 180);
-          rrPath(ctx, -cardW / 2, -cardW / 2, cardW, cardW, 56 * k);
-          ctx.fillStyle = '#D1FFAB'; ctx.fill();
-          ctx.restore();
-          ctx.save();
-          ctx.shadowColor = 'rgba(33,33,33,.16)'; ctx.shadowBlur = 36 * k; ctx.shadowOffsetY = 14 * k;
+          if(cfg.cardShadow){ ctx.shadowColor = 'rgba(33,33,33,.16)'; ctx.shadowBlur = 36 * k; ctx.shadowOffsetY = 14 * k; }
           rrPath(ctx, cardX, cardY, cardW, cardW, 56 * k);
           ctx.fillStyle = '#ffffff'; ctx.fill();
           ctx.restore();
-          var ci = 18 * k, arm = 54 * k;
-          ctx.strokeStyle = '#212121'; ctx.lineWidth = 7 * k; ctx.lineCap = 'round';
-          var corners = [
-            [cardX + ci, cardY + ci, 1, 1], [cardX + cardW - ci, cardY + ci, -1, 1],
-            [cardX + ci, cardY + cardW - ci, 1, -1], [cardX + cardW - ci, cardY + cardW - ci, -1, -1]
-          ];
-          corners.forEach(function(c){
-            ctx.beginPath();
-            ctx.moveTo(c[0] + arm * c[2], c[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(c[0], c[1] + arm * c[3]);
-            ctx.stroke();
-          });
+          if(cfg.cardBorder){
+            rrPath(ctx, cardX, cardY, cardW, cardW, 56 * k);
+            ctx.lineWidth = 2 * k; ctx.strokeStyle = cfg.cardBorder; ctx.stroke();
+          }
+          if(cfg.scanCorners){
+            var ci = 18 * k, arm = 54 * k;
+            ctx.strokeStyle = '#212121'; ctx.lineWidth = 7 * k; ctx.lineCap = 'round';
+            var corners = [
+              [cardX + ci, cardY + ci, 1, 1], [cardX + cardW - ci, cardY + ci, -1, 1],
+              [cardX + ci, cardY + cardW - ci, 1, -1], [cardX + cardW - ci, cardY + cardW - ci, -1, -1]
+            ];
+            corners.forEach(function(c){
+              ctx.beginPath();
+              ctx.moveTo(c[0] + arm * c[2], c[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(c[0], c[1] + arm * c[3]);
+              ctx.stroke();
+            });
+          }
           ctx.drawImage(img, cardX + inner, cardY + inner, S, S);
           ctx.textBaseline = 'middle';
           ctx.textAlign = 'left';
-          ctx.fillStyle = '#212121';
+          ctx.fillStyle = cfg.wordmark;
           ctx.font = '800 ' + Math.round(54 * k) + 'px Sora, Arial, sans-serif';
           ctx.fillText('qrbud.', outer, topBarH / 2 + 2 * k);
           var tn = typeLabel || 'QR';
@@ -545,9 +589,9 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel){
           var tnW = ctx.measureText(tn).width;
           var tpH = 52 * k, tpW = tnW + 44 * k, tpX = W - outer - tpW, tpY = (topBarH - tpH) / 2;
           rrPath(ctx, tpX, tpY, tpW, tpH, tpH / 2);
-          ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.fill();
-          ctx.lineWidth = 2.5 * k; ctx.strokeStyle = '#212121'; ctx.stroke();
-          ctx.fillStyle = '#212121'; ctx.textAlign = 'center';
+          ctx.fillStyle = cfg.typeFill; ctx.fill();
+          ctx.lineWidth = 2.5 * k; ctx.strokeStyle = cfg.typeStroke; ctx.stroke();
+          ctx.fillStyle = cfg.typeText; ctx.textAlign = 'center';
           ctx.fillText(tn, tpX + tpW / 2, tpY + tpH / 2 + 1 * k);
           var txt = (label || 'Scan me').slice(0, 24) || 'Scan me';
           ctx.font = '700 ' + Math.round(44 * k) + 'px Sora, Arial, sans-serif';
@@ -555,13 +599,13 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel){
           var pillW = Math.min(W * 0.8, tw + pillH * 1.5);
           var px = (W - pillW) / 2, py = cardY + cardW + gap2;
           rrPath(ctx, px, py, pillW, pillH, pillH / 2);
-          ctx.fillStyle = '#212121'; ctx.fill();
-          ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
+          ctx.fillStyle = cfg.pillFill; ctx.fill();
+          ctx.fillStyle = cfg.pillText; ctx.textAlign = 'center';
           ctx.fillText(txt, W / 2, py + pillH / 2 + 1 * k);
           var cap = (caption || '').trim();
           if(cap){
             ctx.font = '500 ' + Math.round(34 * k) + 'px Sora, Arial, sans-serif';
-            ctx.fillStyle = '#555C4D'; ctx.textAlign = 'center';
+            ctx.fillStyle = cfg.caption; ctx.textAlign = 'center';
             ctx.fillText(fitText(ctx, cap, W * 0.86), W / 2, py + pillH + gap3 + capH / 2);
           }
           URL.revokeObjectURL(url);
@@ -712,7 +756,7 @@ if(dlPng) dlPng.addEventListener('click', function(){
     qr.getRawData('png').then(function(blob){
       try{ qr.update({ width: 640, height: 640 }); }catch(e){}
       if(!blob) throw new Error('empty');
-      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName());
+      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName(), state.frame.style);
     }).then(function(fblob){
       downloadBlob(fblob, 'qrbud-card.png');
       toast('Card PNG downloaded'); burstConfetti(); addRecent();
@@ -741,7 +785,7 @@ if(copyBtn) copyBtn.addEventListener('click', function(){
     qr.getRawData('png').then(function(blob){
       try{ qr.update({ width: 640, height: 640 }); }catch(e){}
       if(!blob) throw new Error('empty');
-      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName());
+      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName(), state.frame.style);
     }).then(function(cardBlob){
       return navigator.clipboard.write([new ClipboardItem({ 'image/png': cardBlob })]);
     }).then(function(){ toast('Card image copied to clipboard'); addRecent(); })
