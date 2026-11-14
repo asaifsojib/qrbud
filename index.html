@@ -968,14 +968,14 @@ html{-webkit-text-size-adjust:100%}
         <span class="opt-label">Corner style</span>
         <div class="seg" id="cornerSeg" role="group" aria-label="Corner style"></div>
 
-        <span class="opt-label">Photo frame</span>
+        <span class="opt-label">Styled card</span>
         <div class="field">
-          <button class="toggle" id="frameToggle" type="button" role="switch" aria-checked="false"><span class="track" aria-hidden="true"></span>Add a frame to PNG downloads</button>
+          <button class="toggle" id="frameToggle" type="button" role="switch" aria-checked="true"><span class="track" aria-hidden="true"></span>Download PNGs as a designed card</button>
         </div>
-        <div class="field" id="frameTextRow" hidden>
-          <label for="frameText">Frame text</label>
+        <div class="field" id="frameTextRow">
+          <label for="frameText">Card label</label>
           <input class="input" id="frameText" type="text" value="Scan me" maxlength="24" autocomplete="off">
-          <p class="hint">The frame shows in the preview and on PNG downloads only.</p>
+          <p class="hint">The card shows in the preview, on PNG downloads and on copied images.</p>
         </div>
         <div class="field-row">
           <div class="field">
@@ -1318,6 +1318,8 @@ html{-webkit-text-size-adjust:100%}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="qr-lib.js"></script>
+
 <script src="app.js"></script>
+
 </body>
 </html>

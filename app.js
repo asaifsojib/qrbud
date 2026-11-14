@@ -53,7 +53,7 @@ var state = {
   dots: 'rounded',
   corners: 'extra-rounded',
   values: { url: 'https://google.com', enc: 'WPA2' },
-  frame: { on: false, text: 'Scan me' }
+  frame: { on: true, text: 'Scan me' }
 };
 
 var TYPES = [
@@ -439,39 +439,141 @@ if(frameText){
     var fl = byId('frameLabel'); if(fl) fl.textContent = frameText.value || 'Scan me';
   });
 }
-function buildFramedPng(blob, sizePx, label){
+/* Friendly caption for the download card: the readable thing inside the code */
+function captionFor(){
+  var v = state.values || {};
+  if(state.type === 'link'){ var u = (v.url || '').trim(); if(u && !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(u)) u = 'https://' + u; return u; }
+  if(state.type === 'text') return (v.text || '').trim();
+  if(state.type === 'wifi') return (v.ssid || '').trim() ? ('WiFi · ' + v.ssid.trim()) : '';
+  if(state.type === 'contact') return (v.name || v.phone || v.email || '').trim();
+  if(state.type === 'email') return (v.to || '').trim();
+  if(state.type === 'phone') return (v.number || '').trim();
+  return '';
+}
+function typeName(){
+  for(var i = 0; i < TYPES.length; i++){ if(TYPES[i].id === state.type) return TYPES[i].name; }
+  return 'QR';
+}
+function rrPath(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  if(ctx.roundRect){ ctx.roundRect(x, y, w, h, r); return; }
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function star4(ctx, cx, cy, r){
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.quadraticCurveTo(cx, cy, cx + r, cy);
+  ctx.quadraticCurveTo(cx, cy, cx, cy + r);
+  ctx.quadraticCurveTo(cx, cy, cx - r, cy);
+  ctx.quadraticCurveTo(cx, cy, cx, cy - r);
+  ctx.closePath();
+}
+function fitText(ctx, text, maxW){
+  var t = String(text || '');
+  if(!t || ctx.measureText(t).width <= maxW) return t;
+  while(t.length > 1 && ctx.measureText(t + '…').width > maxW){ t = t.slice(0, -1); }
+  return t + '…';
+}
+/* Styled download card: kiwi canvas, glow discs, orbit ring, stack plate, scan corners */
+function buildFramedPng(blob, sizePx, label, caption, typeLabel){
   return new Promise(function(resolve, reject){
     var url = URL.createObjectURL(blob);
     var img = new Image();
     img.onload = function(){
-      try{
-        var pad = Math.round(sizePx * 0.09);
-        var labelH = Math.round(sizePx * 0.22);
-        var rad = Math.round(sizePx * 0.07);
-        var W = sizePx + pad * 2, H = sizePx + pad * 2 + labelH;
-        var cv = doc.createElement('canvas'); cv.width = W; cv.height = H;
-        var ctx = cv.getContext('2d');
-        ctx.clearRect(0, 0, W, H);
-        ctx.beginPath();
-        if(ctx.roundRect){ ctx.roundRect(0, 0, W, H, rad); } else { ctx.rect(0, 0, W, H); }
-        ctx.fillStyle = '#ffffff'; ctx.fill();
-        ctx.drawImage(img, pad, pad, sizePx, sizePx);
-        var txt = (label || 'Scan me').slice(0, 24) || 'Scan me';
-        var fontPx = Math.round(labelH * 0.34);
-        ctx.font = '700 ' + fontPx + 'px Sora, Arial, sans-serif';
-        var tw = ctx.measureText(txt).width;
-        var pillH = Math.round(labelH * 0.56);
-        var pillW = Math.min(W * 0.86, tw + pillH * 1.4);
-        var px = (W - pillW) / 2, py = pad + sizePx + (labelH - pillH) / 2;
-        ctx.beginPath();
-        if(ctx.roundRect){ ctx.roundRect(px, py, pillW, pillH, pillH / 2); } else { ctx.rect(px, py, pillW, pillH); }
-        ctx.fillStyle = '#212121'; ctx.fill();
-        ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(txt, W / 2, py + pillH / 2 + 1);
-        URL.revokeObjectURL(url);
-        if(cv.toBlob){ cv.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png'); }
-        else{ reject(new Error('toBlob unavailable')); }
-      }catch(e){ URL.revokeObjectURL(url); reject(e); }
+      var draw = function(){
+        try{
+          var S = sizePx, k = S / 1024;
+          var outer = 72 * k, inner = 40 * k;
+          var cardW = S + inner * 2, cardX = outer;
+          var W = Math.round(cardW + outer * 2);
+          var topBarH = 96 * k, gap1 = 28 * k, gap2 = 44 * k, pillH = 92 * k, gap3 = 30 * k, capH = 44 * k, botPad = 72 * k;
+          var cardY = topBarH + gap1;
+          var H = Math.round(topBarH + gap1 + cardW + gap2 + pillH + gap3 + capH + botPad);
+          var cv = doc.createElement('canvas'); cv.width = W; cv.height = H;
+          var ctx = cv.getContext('2d');
+          ctx.fillStyle = '#F4FFEB'; ctx.fillRect(0, 0, W, H);
+          var g1 = ctx.createRadialGradient(W * 0.88, H * 0.08, 10, W * 0.88, H * 0.08, 430 * k);
+          g1.addColorStop(0, 'rgba(129,216,41,.38)'); g1.addColorStop(1, 'rgba(129,216,41,0)');
+          ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+          var g2 = ctx.createRadialGradient(W * 0.05, H * 0.94, 10, W * 0.05, H * 0.94, 400 * k);
+          g2.addColorStop(0, 'rgba(159,220,255,.5)'); g2.addColorStop(1, 'rgba(159,220,255,0)');
+          ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+          var dots = [[0.06,0.20,9,'#81D829'],[0.94,0.30,7,'#BDE930'],[0.07,0.56,7,'#FF9AE4'],[0.94,0.60,9,'#9DECFF'],[0.09,0.88,7,'#BDE930'],[0.92,0.90,8,'#81D829'],[0.16,0.05,6,'#9DECFF'],[0.84,0.05,6,'#FF9AE4']];
+          dots.forEach(function(d){
+            ctx.beginPath(); ctx.arc(W * d[0], H * d[1], d[2] * k, 0, Math.PI * 2); ctx.fillStyle = d[3]; ctx.fill();
+          });
+          ctx.fillStyle = '#58A60A'; star4(ctx, W * 0.90, topBarH * 0.52, 17 * k); ctx.fill();
+          ctx.fillStyle = '#BDE930'; star4(ctx, outer * 0.55, cardY + cardW * 0.88, 14 * k); ctx.fill();
+          ctx.fillStyle = '#FF9AE4'; star4(ctx, W * 0.94, H * 0.44, 11 * k); ctx.fill();
+          var ccx = W / 2, ccy = cardY + cardW / 2;
+          ctx.save();
+          ctx.beginPath(); ctx.arc(ccx, ccy, cardW * 0.63, 0, Math.PI * 2);
+          ctx.setLineDash([16 * k, 14 * k]); ctx.lineWidth = 3 * k;
+          ctx.strokeStyle = 'rgba(33,33,33,.28)'; ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.translate(ccx, ccy); ctx.rotate(-5 * Math.PI / 180);
+          rrPath(ctx, -cardW / 2, -cardW / 2, cardW, cardW, 56 * k);
+          ctx.fillStyle = '#D1FFAB'; ctx.fill();
+          ctx.restore();
+          ctx.save();
+          ctx.shadowColor = 'rgba(33,33,33,.16)'; ctx.shadowBlur = 36 * k; ctx.shadowOffsetY = 14 * k;
+          rrPath(ctx, cardX, cardY, cardW, cardW, 56 * k);
+          ctx.fillStyle = '#ffffff'; ctx.fill();
+          ctx.restore();
+          var ci = 18 * k, arm = 54 * k;
+          ctx.strokeStyle = '#212121'; ctx.lineWidth = 7 * k; ctx.lineCap = 'round';
+          var corners = [
+            [cardX + ci, cardY + ci, 1, 1], [cardX + cardW - ci, cardY + ci, -1, 1],
+            [cardX + ci, cardY + cardW - ci, 1, -1], [cardX + cardW - ci, cardY + cardW - ci, -1, -1]
+          ];
+          corners.forEach(function(c){
+            ctx.beginPath();
+            ctx.moveTo(c[0] + arm * c[2], c[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(c[0], c[1] + arm * c[3]);
+            ctx.stroke();
+          });
+          ctx.drawImage(img, cardX + inner, cardY + inner, S, S);
+          ctx.textBaseline = 'middle';
+          ctx.textAlign = 'left';
+          ctx.fillStyle = '#212121';
+          ctx.font = '800 ' + Math.round(54 * k) + 'px Sora, Arial, sans-serif';
+          ctx.fillText('qrbud.', outer, topBarH / 2 + 2 * k);
+          var tn = typeLabel || 'QR';
+          ctx.font = '700 ' + Math.round(30 * k) + 'px Sora, Arial, sans-serif';
+          var tnW = ctx.measureText(tn).width;
+          var tpH = 52 * k, tpW = tnW + 44 * k, tpX = W - outer - tpW, tpY = (topBarH - tpH) / 2;
+          rrPath(ctx, tpX, tpY, tpW, tpH, tpH / 2);
+          ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.fill();
+          ctx.lineWidth = 2.5 * k; ctx.strokeStyle = '#212121'; ctx.stroke();
+          ctx.fillStyle = '#212121'; ctx.textAlign = 'center';
+          ctx.fillText(tn, tpX + tpW / 2, tpY + tpH / 2 + 1 * k);
+          var txt = (label || 'Scan me').slice(0, 24) || 'Scan me';
+          ctx.font = '700 ' + Math.round(44 * k) + 'px Sora, Arial, sans-serif';
+          var tw = ctx.measureText(txt).width;
+          var pillW = Math.min(W * 0.8, tw + pillH * 1.5);
+          var px = (W - pillW) / 2, py = cardY + cardW + gap2;
+          rrPath(ctx, px, py, pillW, pillH, pillH / 2);
+          ctx.fillStyle = '#212121'; ctx.fill();
+          ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center';
+          ctx.fillText(txt, W / 2, py + pillH / 2 + 1 * k);
+          var cap = (caption || '').trim();
+          if(cap){
+            ctx.font = '500 ' + Math.round(34 * k) + 'px Sora, Arial, sans-serif';
+            ctx.fillStyle = '#555C4D'; ctx.textAlign = 'center';
+            ctx.fillText(fitText(ctx, cap, W * 0.86), W / 2, py + pillH + gap3 + capH / 2);
+          }
+          URL.revokeObjectURL(url);
+          if(cv.toBlob){ cv.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png'); }
+          else{ reject(new Error('toBlob unavailable')); }
+        }catch(e){ URL.revokeObjectURL(url); reject(e); }
+      };
+      if(doc.fonts && doc.fonts.ready){
+        var fired = false;
+        var timer = setTimeout(function(){ if(!fired){ fired = true; draw(); } }, 900);
+        doc.fonts.ready.then(function(){ if(!fired){ fired = true; clearTimeout(timer); draw(); } });
+      } else { draw(); }
     };
     img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('image load failed')); };
     img.src = url;
@@ -610,13 +712,13 @@ if(dlPng) dlPng.addEventListener('click', function(){
     qr.getRawData('png').then(function(blob){
       try{ qr.update({ width: 640, height: 640 }); }catch(e){}
       if(!blob) throw new Error('empty');
-      return buildFramedPng(blob, s, state.frame.text || 'Scan me');
+      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName());
     }).then(function(fblob){
-      downloadBlob(fblob, 'qrbud-code-framed.png');
-      toast('Framed PNG downloaded'); burstConfetti(); addRecent();
+      downloadBlob(fblob, 'qrbud-card.png');
+      toast('Card PNG downloaded'); burstConfetti(); addRecent();
     }).catch(function(){
       try{ qr.update({ width: 640, height: 640 }); }catch(e){}
-      toast('Frame failed, downloading plain PNG');
+      toast('Card failed, downloading plain PNG');
       withSize(function(){ qr.download({ name: 'qrbud-code', extension: 'png' }); });
     });
     return;
@@ -633,6 +735,19 @@ if(dlSvg) dlSvg.addEventListener('click', function(){
 var copyBtn = byId('copyBtn');
 if(copyBtn) copyBtn.addEventListener('click', function(){
   if(!engineOK || !needData()) return;
+  if(state.frame.on){
+    var s = parseInt((sizeSel && sizeSel.value) || '1024', 10) || 1024;
+    try{ qr.update({ width: s, height: s }); }catch(e){}
+    qr.getRawData('png').then(function(blob){
+      try{ qr.update({ width: 640, height: 640 }); }catch(e){}
+      if(!blob) throw new Error('empty');
+      return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName());
+    }).then(function(cardBlob){
+      return navigator.clipboard.write([new ClipboardItem({ 'image/png': cardBlob })]);
+    }).then(function(){ toast('Card image copied to clipboard'); addRecent(); })
+      .catch(function(){ try{ qr.update({ width: 640, height: 640 }); }catch(e){} toast('Copy blocked by the browser, use Download instead'); });
+    return;
+  }
   withSize(function(){
     qr.getRawData('png').then(function(blob){
       if(!blob) throw new Error('empty');
