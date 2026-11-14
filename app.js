@@ -53,7 +53,7 @@ var state = {
   dots: 'rounded',
   corners: 'extra-rounded',
   values: { url: 'https://google.com', enc: 'WPA2' },
-  frame: { on: true, text: 'Scan me', style: 'kiwi' }
+  frame: { on: true, text: 'Scan me', style: 'white' }
 };
 
 var TYPES = [
@@ -356,7 +356,7 @@ function renderSegs(){
   (function(){
     var box = byId('cardStyleSeg'); if(!box) return;
     box.innerHTML = '';
-    [['kiwi','Kiwi'],['white','Plain white'],['midnight','Midnight'],['mono','Mono']].forEach(function(o){
+    [['white','Plain white'],['kiwi','Kiwi'],['midnight','Midnight'],['mono','Mono']].forEach(function(o){
       var b = doc.createElement('button');
       b.type = 'button';
       b.textContent = o[1];
@@ -526,14 +526,14 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel, style){
     img.onload = function(){
       var draw = function(){
         try{
-          var cfg = CARD_STYLES[style] || CARD_STYLES.kiwi;
+          var cfg = CARD_STYLES[style] || CARD_STYLES.white;
           var S = sizePx, k = S / 1024;
           var outer = 72 * k, inner = 40 * k;
           var cardW = S + inner * 2, cardX = outer;
           var W = Math.round(cardW + outer * 2);
-          var topBarH = 96 * k, gap1 = 28 * k, gap2 = 44 * k, pillH = 92 * k, gap3 = 30 * k, capH = 44 * k, botPad = 72 * k;
-          var cardY = topBarH + gap1;
-          var H = Math.round(topBarH + gap1 + cardW + gap2 + pillH + gap3 + capH + botPad);
+          var topPad = 72 * k, gap2 = 44 * k, pillH = 92 * k, botPad = 72 * k;
+          var cardY = topPad;
+          var H = Math.round(topPad + cardW + gap2 + pillH + botPad);
           var cv = doc.createElement('canvas'); cv.width = W; cv.height = H;
           var ctx = cv.getContext('2d');
           ctx.fillStyle = cfg.bg; ctx.fillRect(0, 0, W, H);
@@ -559,7 +559,7 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel, style){
             });
           }
           if(cfg.sparkles){
-            ctx.fillStyle = '#58A60A'; star4(ctx, W * 0.90, topBarH * 0.52, 17 * k); ctx.fill();
+            ctx.fillStyle = '#58A60A'; star4(ctx, W * 0.90, topPad * 0.55, 17 * k); ctx.fill();
             ctx.fillStyle = '#BDE930'; star4(ctx, outer * 0.55, cardY + cardW * 0.88, 14 * k); ctx.fill();
             ctx.fillStyle = '#FF9AE4'; star4(ctx, W * 0.94, H * 0.44, 11 * k); ctx.fill();
           }
@@ -602,19 +602,6 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel, style){
           }
           ctx.drawImage(img, cardX + inner, cardY + inner, S, S);
           ctx.textBaseline = 'middle';
-          ctx.textAlign = 'left';
-          ctx.fillStyle = cfg.wordmark;
-          ctx.font = '800 ' + Math.round(54 * k) + 'px Sora, Arial, sans-serif';
-          ctx.fillText('qrbud.', outer, topBarH / 2 + 2 * k);
-          var tn = typeLabel || 'QR';
-          ctx.font = '700 ' + Math.round(30 * k) + 'px Sora, Arial, sans-serif';
-          var tnW = ctx.measureText(tn).width;
-          var tpH = 52 * k, tpW = tnW + 44 * k, tpX = W - outer - tpW, tpY = (topBarH - tpH) / 2;
-          rrPath(ctx, tpX, tpY, tpW, tpH, tpH / 2);
-          ctx.fillStyle = cfg.typeFill; ctx.fill();
-          ctx.lineWidth = 2.5 * k; ctx.strokeStyle = cfg.typeStroke; ctx.stroke();
-          ctx.fillStyle = cfg.typeText; ctx.textAlign = 'center';
-          ctx.fillText(tn, tpX + tpW / 2, tpY + tpH / 2 + 1 * k);
           var txt = (label || 'Scan me').slice(0, 24) || 'Scan me';
           ctx.font = '700 ' + Math.round(44 * k) + 'px Sora, Arial, sans-serif';
           var tw = ctx.measureText(txt).width;
@@ -624,12 +611,6 @@ function buildFramedPng(blob, sizePx, label, caption, typeLabel, style){
           ctx.fillStyle = cfg.pillFill; ctx.fill();
           ctx.fillStyle = cfg.pillText; ctx.textAlign = 'center';
           ctx.fillText(txt, W / 2, py + pillH / 2 + 1 * k);
-          var cap = (caption || '').trim();
-          if(cap){
-            ctx.font = '500 ' + Math.round(34 * k) + 'px Sora, Arial, sans-serif';
-            ctx.fillStyle = cfg.caption; ctx.textAlign = 'center';
-            ctx.fillText(fitText(ctx, cap, W * 0.86), W / 2, py + pillH + gap3 + capH / 2);
-          }
           URL.revokeObjectURL(url);
           if(cv.toBlob){ cv.toBlob(function(b){ b ? resolve(b) : reject(new Error('toBlob failed')); }, 'image/png'); }
           else{ reject(new Error('toBlob unavailable')); }
