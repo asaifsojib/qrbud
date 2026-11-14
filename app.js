@@ -415,8 +415,8 @@ function initShowcase(){
   if(!engineOK) return;
   var defs = [
     { id: 'showQr1', data: 'https://google.com', fg: '#58A60A', bg: '#F4FFEB', dots: 'dots', corners: 'dot' },
-    { id: 'showQr2', data: 'WIFI:T:WPA2;S:QRbud Cafe;P:kiwi1234;H:false;;', fg: '#ffffff', bg: '#212121', dots: 'rounded', corners: 'extra-rounded' },
-    { id: 'showQr3', data: 'Hello from QRbud!', fg: '#194965', bg: '#DFF1FC', dots: 'classy', corners: 'square' }
+    { id: 'showQr2', data: 'WIFI:T:WPA2;S:Qrify Cafe;P:kiwi1234;H:false;;', fg: '#ffffff', bg: '#212121', dots: 'rounded', corners: 'extra-rounded' },
+    { id: 'showQr3', data: 'Hello from Qrify!', fg: '#194965', bg: '#DFF1FC', dots: 'classy', corners: 'square' }
   ];
   defs.forEach(function(d){
     var box = byId(d.id); if(!box) return;
@@ -665,7 +665,7 @@ var shuffleBtn = byId('shuffleBtn');
 if(shuffleBtn) shuffleBtn.addEventListener('click', shuffleStyle);
 
 /* Recent codes: links + plain text only, on this device only */
-var RECENT_KEY = 'qrbud:recent:v1';
+var RECENT_KEY = 'qrify:recent:v1';
 var recents = [];
 try{
   var rawRecent = localStorage.getItem(RECENT_KEY);
@@ -761,22 +761,22 @@ if(dlPng) dlPng.addEventListener('click', function(){
       if(!blob) throw new Error('empty');
       return buildFramedPng(blob, s, state.frame.text || 'Scan me', captionFor(), typeName(), state.frame.style);
     }).then(function(fblob){
-      downloadBlob(fblob, 'qrbud-card.png');
+      downloadBlob(fblob, 'qrify-card.png');
       toast('Card PNG downloaded'); burstConfetti(); addRecent();
     }).catch(function(){
       try{ qr.update({ width: 640, height: 640 }); }catch(e){}
       toast('Card failed, downloading plain PNG');
-      withSize(function(){ qr.download({ name: 'qrbud-code', extension: 'png' }); });
+      withSize(function(){ qr.download({ name: 'qrify-code', extension: 'png' }); });
     });
     return;
   }
-  withSize(function(){ qr.download({ name: 'qrbud-code', extension: 'png' }); });
+  withSize(function(){ qr.download({ name: 'qrify-code', extension: 'png' }); });
   toast('PNG downloaded'); burstConfetti(); addRecent();
 });
 var dlSvg = byId('dlSvg');
 if(dlSvg) dlSvg.addEventListener('click', function(){
   if(!engineOK || !needData()) return;
-  withSize(function(){ qr.download({ name: 'qrbud-code', extension: 'svg' }); });
+  withSize(function(){ qr.download({ name: 'qrify-code', extension: 'svg' }); });
   toast('SVG downloaded'); burstConfetti(); addRecent();
 });
 var copyBtn = byId('copyBtn');
@@ -938,7 +938,7 @@ if(!engineOK){
 }
 
 /* test hooks (used only by automated verification) */
-window.__qrbud = {
+window.__qrify = {
   buildData: buildData,
   state: state,
   selectTab: function(t){ selectTab(t, false); },
